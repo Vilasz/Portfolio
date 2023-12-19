@@ -1,0 +1,1 @@
+9999999999{"name": "scramp", "version": "1.4.4", "summary": "An implementation of the SCRAM protocol.", "platform": null, "requires_dist": ["asn1crypto (>=1.5.1)", "importlib-metadata (>=1.0) ; python_version < \"3.8\""], "requires_python": ">=3.7", "files": [], "_cache_version": "1.0.0"}

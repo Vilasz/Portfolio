@@ -1,0 +1,716 @@
+---
+title: "A2 Asla"
+author: "João Felipe Vilas Boas"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Setting the environment up
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r results='hide', warning=FALSE, message=FALSE}
+  install.packages("utf8", repos = "http://cran.rstudio.com")
+```
+
+
+```{r results='hide', warning=FALSE, message=FALSE}
+library(utf8)
+Sys.setlocale("LC_CTYPE", "en_US.UTF-8")
+```
+
+```{r results='hide', warning=FALSE, message=FALSE}
+my_packages <- c("tidyverse", "ggrepel", "ggridges", "gridExtra", "interplot", "margins", "maps",
+"mapdata", "scales", "devtools", "dplyr", "grid")
+
+install.packages(my_packages, repos = "http://cran.rstudio.com")
+```
+
+```{r results='hide', warning=FALSE, message=FALSE}
+if(!require("ggplot2")) install.packages("ggplot2")
+```
+
+```{r results='hide', warning=FALSE, message=FALSE}
+if(!require("magick")) install.packages("magick")
+```
+
+```{r results='hide', warning=FALSE, message=FALSE}
+if(!require("ggimage")) install.packages("ggimage")
+```
+```{r results='hide', warning=FALSE, message=FALSE}
+if(!require("svglite")) install.packages("svglite")
+if(!require("animation")) install.packages("animation")
+```
+```{r results='hide', warning=FALSE, message=FALSE}
+if(!require("plotly")) install.packages("plotly")
+```
+
+
+# Parte A - Formulação e documentação da ideia
+
+Para iniciar, vale ressaltar que a título de seguir com o objetivo da disciplina, decidi fazer uma análise exploratória sobre uma visualização adicional que apesar de não ter nenhuma hipotése a ser respondida, é uma visualização que gostaria de fazer. Assim, produzirei dois pedaços de visualização de forma que um respondam a hipótese que será apresentada.
+
+## Escolha da base de dados
+
+As bases de dados que irei utilizar são as seguintes: 
+
+```{r}
+temp22 <- read.csv("soccer21-22.csv")
+head(temp22)
+```
+Esse dataset mostra estatísticas dos jogos da Premier League (Campeonato Inglês de Futebol) da temporada 21-22. Acredito que seja interessante para um visitante deste trabalho entender quais são os labels apresentados nesse dataset: 
+
+- FTHG:	Full Time Home Team Goals
+- FTAG:	Full Time Away Team Goals
+- FTR:	Full Time Result (H=Home Win, D=Draw, A=Away Win)
+- HTHG:	Half Time Home Team Goals
+- HTAG:	Half Time Away Team Goals
+- HTR:	Half Time Result (H=Home Win, D=Draw, A=Away Win)
+- Referee:	Match Referee
+- HS:	Home Team Shots
+- AS:	Away Team Shots
+- HST: Home Team Shots on Target
+- AST:Away Team Shots on Target
+- HC:	Home Team Corners
+- AC:	Away Team Corners
+- HF:	Home Team Fouls Committed
+- AF:	Away Team Fouls Committed
+- HY:	Home Team Yellow Cards
+- AY:	Away Team Yellow Cards
+- HR:	Home Team Red Cards
+- AR:	Away Team Red Cards
+
+Usarei um segundo dataset também: 
+
+```{r}
+PL <- read.csv("results.csv")
+head(PL)
+```
+Esse dataset traz essencialmente a mesma coisa do anterior, porém com dados das temporadas de 93-94 até 21-22. 
+
+```{r}
+datatab <- read.csv("weeklyrank.csv")
+head(datatab)
+```
+
+Nesse dataset, temos o acompanhamento por rodada da EPL (English Premier League) da temporada 21-22. A única informação que talvez seja interessante distinguir é que GD (Goal Difference) se refere ao saldo de gol de cada time por rodada. 
+
+## Formulação da Hipótese
+
+O que procuro responder com essa minha análise nasceu a partir de um vídeo que vi há algum tempo atrás, depois da sofrida eliminação do Manchester City na Liga dos Campeões da Europa por um critério de desempate de gols fora de casa. Esse critério de desempate era utilizado da seguinte maneira: 
+O match eliminatório era composto de duas partidas, uma na "casa" (estádio) de cada time e passava aquele que estivesse ganhando no placar agregado das duas partidas. Contudo, no caso de empate, o primério critério de desempate era gols fora de casa. Exemplificando: Digamos que o Time A ganhou do Time B por um placar de 3 a 2 dentro de casa e perdeu para o Time B por 0 a 1 fora de casa. Nesse caso que passaria para a próxima fase seria o Time B que conseguiu marcar 2 gols fora de casa enquanto o Time A marcou 0 gols fora de casa. 
+
+Entretanto, há dois anos essa regra foi abolida, pois, de acordo com o vídeo que vi há algum tempo, já não havia mais tanta disparidade entre ganhar (e fazer gols) fora e dentro de casa. Nesse estudos vamos olhar ao longo das rodadas da EPL de 93-94 até 21-22 se realmente podemos observar uma queda na diferença de pontos, gols e vitórias dentro e fora de casa. 
+
+Portanto minha pergunta é: "Remover o critério de desempate do "gols fora de casa" pode ser embasado pelo decréscimo de dificuldade entre ganhar, pontuar e marcar gols fora de casa?"
+
+## Referências Visuais
+
+De referências visuais tenho em mente algumas visualizações. 
+
+1) O trabalho realizado no ano passado pelo monitor Fabrício Venturim. 
+
+2) O gráfico abaixo:
+
+![Away goal Percentage](AwayGoalPercent.png)
+
+3) Por fim, a visualização extra que irei fazer ao final foi baseado em um reels do instagram sobre o ranking dos times por rodada, assim farei um gif para tentar reproduzir o mesmo. 
+
+# Parte B - Análise Exploratória da Base de Dados 
+
+Seguindo para uma análise exploratória, podemos realizar diversos tipos de insights  com as métricas e parâmetros que temos. Para o nosso estudo sobre a regra do "Gol fora de casa", se faz interessante analisarmos duas possíveis correlações: 
+
+- O percentual de gols marcados dentro e fora de casa ao longo do tempo e como esse valor se comporta, observando para uma possível tendência. Com isso conseguiremos identificar, se, ao longo dos anos, marcar gols dentro ou fora de casa vem se tornando mais frequente (mais fácil de certa forma ou não);
+
+- A quantidade de pontos que o time consegue dentro e fora de casa. Essa métrica, vai nos ajudar a entender se a dificuldade de se ganhar fora ou dentro de casa mudou ou não ao longo do tempo.
+
+- Relação de vitórias, empates e derrotas ao longo das temporadas para times que jogam em casa e fora de casa. 
+- Chutes no Alvo ao longo das temporadas para times que jogam em casa e fora de casa, isso nos ajuda a entender o quão "à vontade" está um time durante jogo, naturalmente aquele que joga em casa tende a estar mais confiante por conhecer mais o ambiente que está jogando. 
+
+- Faltas e Cartões ao longo das temporadas para times que jogam em casa e fora de casa, assim podemos entender se há alguma relação entre a agressividade do time no jogo e a torcida do time adversário. 
+
+## Possíveis Visualizações
+
+### Distribuição de resultados
+
+Podemos estudar a distribuição de vitórias dentro e fora de casa: 
+
+```{r}
+library(plotly)
+library(dplyr)
+
+result_summary <- PL %>%
+  group_by(Season, FTR) %>%
+  summarise(Count = n())
+
+plot <- plot_ly(result_summary, x = ~Season, y = ~Count, color = ~FTR,
+                type = "bar", hovertemplate = "Season: %{x}<br>Result: %{color}<br>Count: %{y}") %>%
+  layout(title = "Results Distribution per Season",
+         xaxis = list(title = "Season"),
+         yaxis = list(title = "Count"),
+         hovermode = "closest",
+         showlegend = TRUE)
+plot
+
+```
+
+```{r}
+library(ggplot2)
+
+result_summary <- PL %>%
+  group_by(Season, FTR) %>%
+  summarise(Count = n())
+
+result_summary <- result_summary %>%
+  filter(Season >= "1993-94" & Season <= "2001-02")
+
+ggplot(result_summary, aes(x = FTR, y = Count, fill = FTR)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Season, ncol = 3) +
+  labs(title = "Results Distribution per Season", x = "Result", y = "Count") +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e", "#2ca02c"),
+                    labels = c("Away", "Draw", "Home")) +
+  theme_bw()
+
+
+```
+```{r}
+library(ggplot2)
+
+result_summary <- PL %>%
+  group_by(Season, FTR) %>%
+  summarise(Count = n())
+
+result_summary <- result_summary %>%
+  filter(Season >= "2002-03" & Season <= "2010-11")
+
+ggplot(result_summary, aes(x = FTR, y = Count, fill = FTR)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Season, ncol = 3) +
+  labs(title = "Results Distribution per Season", x = "Result", y = "Count") +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e", "#2ca02c"),
+                    labels = c("Home", "Away", "Draw")) +
+  theme_bw()
+
+```
+
+```{r}
+library(ggplot2)
+
+result_summary <- PL %>%
+  group_by(Season, FTR) %>%
+  summarise(Count = n())
+
+result_summary <- result_summary %>%
+  filter(Season >= "2011-12" & Season <= "2021-22")
+
+ggplot(result_summary, aes(x = FTR, y = Count, fill = FTR)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Season, ncol = 3) +
+  labs(title = "Results Distribution per Season", x = "Result", y = "Count") +
+  scale_fill_manual(values = c("#1f77b4", "#ff7f0e", "#2ca02c"),
+                    labels = c("Away", "Draw", "Home")) +
+  theme_bw()
+
+
+```
+Iremos explorar também dados como, qual foi o time mais vitorioso da EPL
+### Relação Chutes no Alvo Dentro e Fora de Casa
+
+Vamos neste momento estudar possíveis relações entre Chutes realizados pelo time da casa e o time visitante e plotar para uma possível relação entre chutes no alvo. 
+
+```{r}
+library(plotly)
+library(dplyr)
+
+filtered_data <- PL %>%
+  filter(Season >= "2000-01")
+
+summary_data <- filtered_data %>%
+  group_by(Season) %>%
+  summarize(Home_Shots = sum(HS),
+            Home_Shots_On_Target = sum(HST),
+            Away_Shots = sum(AS),
+            Away_Shots_On_Target = sum(AST))
+
+# Create the interactive bar plot
+plot <- plot_ly(summary_data, x = ~Season,
+                type = "bar",
+                name = "Home Shots on Target",
+                y = ~Home_Shots_On_Target,
+                marker = list(color = "#1f77b4"),
+                hovertemplate = "Season: %{x}<br>Category: Home Shots on Target<br>Count: %{y}") %>%
+  add_trace(y = ~Home_Shots,
+            marker = list(color = "#aec7e8"),
+            name = "Home Shots",
+            hovertemplate = "Season: %{x}<br>Category: Home Shots<br>Count: %{y}") %>%
+  add_trace(x = ~Season,
+            y = ~Away_Shots_On_Target,
+            marker = list(color = "#ff7f0e"),
+            name = "Away Shots on Target",
+            hovertemplate = "Season: %{x}<br>Category: Away Shots on Target<br>Count: %{y}") %>%
+  add_trace(x = ~Season,
+            y = ~Away_Shots,
+            marker = list(color = "#ffbb78"),
+            name = "Away Shots",
+            hovertemplate = "Season: %{x}<br>Category: Away Shots<br>Count: %{y}") %>%
+  layout(title = "Distribuição de finalizações por temporada",
+         xaxis = list(title = "Season"),
+         yaxis = list(title = "Count"),
+         hovermode = "closest",
+         barmode = "group",
+         showlegend = TRUE)
+
+# Display the plot
+plot
+
+
+
+```
+
+### Relação aggressividade dos jogadores e mando de campo
+
+Nessa seção iremos explorar as possíveis relações entre o mando de campo e a agressividades dos jogadores na partida. Podemos utilizar como métricas para tal estudo a quantidade de faltas cometidas pelo time de casa e o time visitante ao longo do tempo. 
+
+```{r}
+library(plotly)
+library(dplyr)
+
+# Assuming you have the 'game_results' table with columns 'Season', 'HF', 'AF', 'HY', 'AY', 'HR', 'AR'
+
+# Filter the data for seasons starting from 2000-01
+filtered_data <- PL %>%
+  filter(Season >= "2000-01")
+
+# Group and summarize the data by Season
+summary_data <- filtered_data %>%
+  group_by(Season) %>%
+  summarize(HF = sum(HF),
+            AF = sum(AF))
+
+# Create the interactive line chart
+plot <- plot_ly(summary_data, x = ~Season,
+                type = "scatter",
+                mode = "lines",
+                hovertemplate = "Season: %{x}<br>%{text}",
+                hoveron = "points+lines") %>%
+  add_trace(y = ~HF,
+            name = "Home Fouls",
+            text = ~paste("Home Fouls: ", HF),
+            line = list(color = "#1f77b4")) %>%
+  add_trace(y = ~AF,
+            name = "Away Fouls",
+            text = ~paste("Away Fouls: ", AF),
+            line = list(color = "#ff7f0e")) %>%
+  layout(title = "Faltas por temporada",
+         xaxis = list(title = "Season"),
+         yaxis = list(title = "Count"),
+         hovermode = "closest",
+         showlegend = TRUE)
+
+# Display the plot
+plot
+
+```
+
+Agora faremos um gráfico para cartões apresentados: 
+
+```{r}
+library(plotly)
+library(dplyr)
+
+# Assuming you have the 'game_results' table with columns 'Season', 'HF', 'AF', 'HY', 'AY', 'HR', 'AR'
+
+# Filter the data for seasons starting from 2000-01
+filtered_data <- PL %>%
+  filter(Season >= "2000-01")
+
+# Group and summarize the data by Season
+summary_data <- filtered_data %>%
+  group_by(Season) %>%
+  summarize(HY = sum(HY),
+            AY = sum(AY),
+            HR = sum(HR),
+            AR = sum(AR))
+
+# Create the interactive line chart
+plot <- plot_ly(summary_data, x = ~Season,
+                type = "scatter",
+                mode = "lines",
+                hovertemplate = "Season: %{x}<br>%{text}",
+                hoveron = "points+lines") %>%
+  add_trace(y = ~HY,
+            name = "Home Yellow Cards",
+            text = ~paste("Home Yellow Cards: ", HY),
+            line = list(color = "#2ca02c")) %>%
+  add_trace(y = ~AY,
+            name = "Away Yellow Cards",
+            text = ~paste("Away Yellow Cards: ", AY),
+            line = list(color = "#d62728")) %>%
+  add_trace(y = ~HR,
+            name = "Home Red Cards",
+            text = ~paste("Home Red Cards: ", HR),
+            line = list(color = "#9467bd")) %>%
+  add_trace(y = ~AR,
+            name = "Away Red Cards",
+            text = ~paste("Away Red Cards: ", AR),
+            line = list(color = "#8c564b")) %>%
+  layout(title = "Cartões por temporada (Casa x Visitante)",
+         xaxis = list(title = "Temporada"),
+         yaxis = list(title = "Faltas"),
+         hovermode = "closest",
+         showlegend = TRUE)
+
+# Display the plot
+plot
+```
+
+
+# Parte C - Pensamento Editorial
+
+## Público Alvo
+
+Essa análise e peça gráfica tem o intuito de servir como base para entusiastasa futebolísticos que gostam de estudar sobre mudanças no jogo. Como uma análise amadora é interessante observar o desenvolvimento do jogo ao longo do tempo e como novas medidas tiveram que ser tomadas de acordo com as demandas da época. 
+
+## Expressividade
+
+Acima de tudo, essa peça gráfica tem o intuito de informar um torcedor comum, um analista ou até servir de argumentação em uma conversa de bar. Assim, acredito que seja interessante mantermos um meio termo entre um tom neutro (informativo) e esportivo/animado (uma vez que o maior esporte do mundo deveras mexe com o emocional de um torcedor). 
+
+## Representação
+Como já mencionado anteriormente, irei me basear nos três gráficos apresentados para elaborar a visualização. Como faremos visualizações em sua maioria estáticas, a interatividade será reduzida. Para produzirmos as visualizações utilizaremos essencialmente ggplot2 e dplyr. 
+
+# Parte D - Produção da Peça Gráfica
+
+## 1ª Visualização - Pontos ao longo do tempo
+
+Inicialmente é interessante criar uma tabela auxiliar com a quanitdade de vitórias do time da casa, qauntidade de vitórias pelo time visitante, quantidade de empates e quantos pontos isso totatilza por temporada. Vamos fazer isso utilizando a biblioteca do dplyr: 
+
+
+```{r}
+library(dplyr)
+
+season_summary <- PL %>%
+  group_by(Season) %>%
+  summarize(
+    H = sum(FTR == "H"),
+    A = sum(FTR == "A"),
+    Draw = sum(FTR == "D"),
+    Home_Points = sum(ifelse(FTR == "H", 3, ifelse(FTR == "D", 1, 0))),
+    Away_Points = sum(ifelse(FTR == "A", 3, ifelse(FTR == "D", 1, 0)))
+  )
+
+season_summary <- season_summary %>%
+  mutate(
+    Home_Percentage = Home_Points / (Home_Points + Away_Points) * 100,
+    Away_Percentage = Away_Points / (Home_Points + Away_Points) * 100
+  )
+head(season_summary)
+
+```
+
+```{r}
+
+library(plotly)
+
+p <- plot_ly(season_summary, x = ~Season) %>%
+  add_lines(y = ~Home_Points, name = "Pontos HOME", line = list(color = "#1f77b4")) %>%
+  add_lines(y = ~Away_Points, name = "Pontos AWAY", line = list(color = "#ff7f0e")) %>%
+  layout(title = "Evolução de pontos dentro e fora de casa por temporada",
+         xaxis = list(title = "Temporada"),
+         yaxis = list(title = "Pontos"),
+         hovermode = "x unified",
+         showlegend = TRUE,
+         legend = list(x = 0.98, y = 0.98, xanchor = "right", yanchor = "top"),
+         hovertemplate = "Season: %{x}<br>Goals: %{y}") %>%
+  config(displayModeBar = FALSE)
+
+p
+
+htmlwidgets::saveWidget(p, "interactive_graph1.html")
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+new_table <- season_summary %>%
+  gather(key = Points_Type, value = Percentage, Home_Percentage, Away_Percentage)
+
+head(new_table)
+
+```
+
+
+
+
+
+
+```{r}
+
+library(plotly)
+library(dplyr)
+
+p2 <- plot_ly(new_table, x = ~Season, y = ~Percentage, color = ~Points_Type,
+        type = "bar", colors = c("#ff7f0e", "#1f77b4"),
+        hovertemplate = "Season: %{x}<br>Points: %{y}") %>%
+  layout(xaxis = list(title = "Temporada"),
+         yaxis = list(title = "Percentual de Pontos", range = c(0, 100)),
+         legend = list(title = "Points Type",
+                       itemsizing = "constant",
+                       itemclick = "toggleothers"),
+         hovermode = "closest",
+         barmode = "stack")
+
+p2
+htmlwidgets::saveWidget(p2, "interactive_graph2.html")
+
+```
+
+
+## 2ª Visualização - Gols ao longo do tempo
+
+Nesta seção vamos fazer análises parecidas as anteriores, porém desta vez analisando os gols do time da casa e do visitante ao longo das temporadas do campeonato inglês. 
+
+```{r}
+library(dplyr)
+
+goals_summary <- PL %>%
+  group_by(Season) %>%
+  summarize(Home_Goals = sum(FTHG),
+            Away_Goals = sum(FTAG))
+
+goals_summary <- goals_summary %>%
+  mutate(Home_Goals_Percentile = Home_Goals / (Home_Goals + Away_Goals),
+         Away_Goals_Percentile = Away_Goals / (Home_Goals + Away_Goals))
+
+head(goals_summary)
+
+```
+
+
+```{r}
+library(plotly)
+library(dplyr)
+
+p3 <- plot_ly(goals_summary, x = ~Season) %>%
+  add_lines(y = ~Home_Goals, name = "Gols HOME", line = list(color = "#1f77b4")) %>%
+  add_lines(y = ~Away_Goals, name = "Gols AWAY", line = list(color = "#ff7f0e")) %>%
+  layout(title = "Evolução de gols marcados dentro e fora de casa por temporada",
+         xaxis = list(title = "Temporada"),
+         yaxis = list(title = "Gols"),
+         hovermode = "x unified",
+         showlegend = TRUE,
+         legend = list(x = 0.98, y = 0.98, xanchor = "right", yanchor = "top"),  
+         hovertemplate = "Season: %{x}<br>Goals: %{y}") %>%
+  config(displayModeBar = FALSE)
+
+p3
+
+htmlwidgets::saveWidget(p3, "interactive_graph3.html")
+
+
+```
+
+```{r}
+library(plotly)
+
+goals_summary$Season_Num <- as.numeric(gsub("-", "", goals_summary$Season))
+
+scatter_plot <- plot_ly(goals_summary, x = ~Season_Num, y = ~Home_Goals_Percentile, type = "scatter", mode = "markers") %>%
+  add_markers(color = I("#1f77b4"), hoverinfo = "text", hovertext = ~paste("Season: ", Season, "<br>Percentage of Home Goals: ", Home_Goals_Percentile, "%")) %>%
+  add_lines(x = ~Season_Num, y = ~fitted(loess(Home_Goals_Percentile ~ Season_Num, data = goals_summary)), color = I("#ff7f0e"), name = "Trendline", line = list(dash = "dash", width = 2, color = toRGB("blue", 0.7))) %>%
+  layout(title = "Porcentagem de gols marcados em casa por temporada",
+         xaxis = list(title = "Temporada", tickmode = "array", tickvals = ~Season_Num, ticktext = ~gsub("(\\d{4})(\\d{2})", "\\1-\\2", Season)),
+         yaxis = list(title = "Porcentagem gols em casa"),
+         hovermode = "closest",
+         showlegend = FALSE) %>%  config(displayModeBar = FALSE)
+
+lm_model <- lm(Home_Goals_Percentile ~ Season_Num, data = goals_summary)
+
+scatter_plot <- add_trace(scatter_plot, x = ~Season_Num, y = ~predict(lm_model), mode = "lines", name = "Linear Regression", line = list(dash = "dot", width = 2, color = toRGB("red", 0.7)))
+
+scatter_plot
+
+htmlwidgets::saveWidget(scatter_plot, "interactive_graph4.html")
+
+
+```
+
+
+## Movimentação ao longo da temporada (Tabela)
+
+Agora tentaremos fazer uma análise quanto a movimentação das colocações da tabela por temporada. Já temos uma tabela que cumpre esse formato, com o ranking, a rodada, e o saldo de gols de cada time. Vamos tentar, a partir do dataset PL construir essas tabelas adiconais: 
+
+```{r}
+season_1995_96 <- filter(PL, Season == "1995-96")
+head(season_1995_96)
+
+```
+
+```{r}
+teams <- unique(c(season_1995_96$HomeTeam, season_1995_96$AwayTeam))
+head(teams)
+```
+```{r}
+library(dplyr)
+
+season_1995_96 <- PL %>%
+  filter(Season == "1995-96")
+
+PL_with_week <- season_1995_96 %>%
+  group_by(Season) %>%
+  mutate(Week = cumsum(ifelse(row_number() %% 10 == 1, 1, 0))) %>%
+  ungroup()
+
+head(PL_with_week)
+
+```
+
+
+```{r}
+teams <- unique(c(PL_with_week$HomeTeam, PL_with_week$AwayTeam))
+
+team_points <- data.frame(Team = character(),
+                          Week = integer(),
+                          Points = integer(),
+                          stringsAsFactors = FALSE)
+
+for (week in 1:38) {
+  week_matches <- PL_with_week[PL_with_week$Week == week, ]
+  week_points <- integer(length(teams))
+  
+  for (i in 1:length(teams)) {
+    team <- teams[i]
+    team_matches <- week_matches[week_matches$HomeTeam == team | week_matches$AwayTeam == team, ]
+    team_points_row <- team_points[team_points$Team == team & team_points$Week == (week - 1), ]
+    prev_points <- ifelse(nrow(team_points_row) == 0, 0, team_points_row$Points)
+    points <- sum(ifelse(team_matches$FTR == "H" & team_matches$HomeTeam == team, 3,
+                         ifelse(team_matches$FTR == "A" & team_matches$AwayTeam == team, 3,
+                                ifelse(team_matches$FTR == "D", 1, 0))))
+    total_points <- prev_points + points
+    week_points[i] <- total_points
+  }
+  
+  team_points <- rbind(team_points, data.frame(Team = teams, Week = week, Points = week_points))
+}
+
+head(team_points)
+
+
+```
+
+```{r}
+team_points <- team_points[order(team_points$Week, -team_points$Points), ]
+
+team_points$Team <- factor(team_points$Team, levels = unique(team_points$Team))
+
+head(team_points)
+
+
+```
+
+```{r}
+team_points <- team_points[order(team_points$Week, -team_points$Points), ]
+
+team_points$Team <- factor(team_points$Team, levels = unique(team_points$Team))
+
+team_points$Rank <- rep(1:20, length.out = nrow(team_points))
+
+head(team_points)
+
+```
+
+
+
+```{r}
+library(ggplot2)
+library(gganimate)
+library(ggimage)
+library(transformr)
+
+man_city <- "man_city_logo_resized.png"
+
+p <- ggplot(team_points, aes(Week, Rank, group = Team)) +
+  ggimage::geom_image(
+  data = subset(team_points, Team == "Man City"),
+  aes(image = man_city),
+  size = 0.05
+) +
+    geom_line(aes(color = Team)) +  
+  scale_y_reverse(breaks = 1:20, labels = 1:20) +
+  theme_bw() +
+  labs(title = 'Tabela 1995-96', x = 'Rodada', y = 'Rank') +
+  transition_reveal(Week) +
+  ease_aes('linear')
+
+ animate(p, fps = 5)
+
+anim_save("272-ggplot2-animated-gif-chart-with-gganimate1.gif")
+
+```
+
+Agora criamos uma visualização parecida, porém referente a tabela dos jogos de 2021-22:
+
+Passo 1) Importar a tabela por rodada temporada 21-22
+```{r}
+datatab <- read.csv("weeklyrank.csv")
+head(datatab)
+```
+Passo 2) Construção do Gráfico
+
+```{r}
+p <- ggplot(data = datatab, mapping = aes(x = Week, y = Rank))
+p + geom_line(aes(group = Team))
+```
+Passo 3) Inverter o eixo y:
+
+```{r}
+p <- ggplot(data = datatab, mapping = aes(x = Week, y = Rank))
+p + geom_line(aes(group = Team)) + scale_y_reverse()
+```
+Passo 4) Colorir por time: 
+
+```{r}
+p <- ggplot(data = datatab, mapping = aes(x = Week, y = Rank))
+p + geom_line(aes(group = Team, color = Team)) + scale_y_reverse(breaks = 1:20, labels = 1:20)
+```
+
+Passo 5) Fazer Gif
+
+```{r results='hide', warning=FALSE, message=FALSE}
+install.packages("gganimate", repos = "http://cran.rstudio.com")
+install.packages("transformr", repos = "http://cran.rstudio.com")
+```
+
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+library(gganimate)
+library(ggimage)
+library(transformr)
+
+man_city <- "man_city_logo_resized.png"
+
+p <- ggplot(datatab, aes(Week, Rank, group = Team)) +
+  ggimage::geom_image(
+  data = subset(datatab, Team == "Man City"),
+  aes(image = man_city),
+  size = 0.05
+) +
+    geom_line(aes(color = Team)) +  
+  scale_y_reverse(breaks = 1:20, labels = 1:20) +
+  theme_bw() +
+  labs(title = 'Tabela 21-22', x = 'Rodada', y = 'Rank') +
+  transition_reveal(Week) +
+  ease_aes('linear')
+
+ animate(p, fps = 5)
+
+anim_save("271-ggplot2-animated-gif-chart-with-gganimate1.gif")
+
+
+
+```
+
+Observado essas duas visualizações "animadas" e todo o resto deste estudo podemos observar uma maior quantidade de mudança de posições entre os times ao longo da temporada se comparado com a Tabela da temporada de 2021-22, além de uma tendência mais igualitária na distribuição de jogos em casa e jogos fora de casa. A partir disso, podemos concluir um pequeno indício que o futebol mais recentemente vem se tornando um esporte (pelo menos na EPL) mais competitivos entre os próprios participantes, onde não vemos mais tantas disparidades. Isso pode ser um forte indício de que o critério do gol fora de casa estava ultrapassado, uma vez que hoje em dia não observa-se a mesma de diferença de anteriormente na dificuldade de se marcar gols fora de casa. 

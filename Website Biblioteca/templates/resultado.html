@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultado da Consulta</title>
+    <link rel="stylesheet" href="../static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        {% if livros %}
+        <table class="results-table">
+            <tr>
+                <th>Título</th>
+                <th>Autores</th>
+                <th>Lido</th>
+            </tr>
+            {% for livro in livros %}
+            <tr>
+                <td>{{ livro[0] }}</td>
+                <td>{{ livro[1] }}</td>
+                <td>{{ "Sim" if livro[2] else "Não" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>Nenhum livro encontrado para a categoria selecionada.</p>
+        {% endif %}
+    </div>
+</body>
+
+</html>
